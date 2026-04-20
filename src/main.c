@@ -7,16 +7,24 @@
 static void *xfb = NULL;
 static GXRModeObj *rmode = NULL;
 
+// The 25 Natures in the exact order Generation 4 uses them
+const char* NATURE_NAMES[25] = {
+    "Hardy", "Lonely", "Brave", "Adamant", "Naughty",
+    "Bold", "Docile", "Relaxed", "Impish", "Lax",
+    "Timid", "Hasty", "Serious", "Jolly", "Naive",
+    "Modest", "Mild", "Quiet", "Bashful", "Rash",
+    "Calm", "Gentle", "Sassy", "Careful", "Quirky"
+};
+
 // Standard Pokémon LCG
 uint32_t LCG(uint32_t seed) {
     return (0x41C64E6D * seed + 0x00006073);
 }
 
 // The Cracker Function
-int crack() {
-    uint8_t desiredNature = 15; // 15 = Modest in Gen 4
+int crack(uint8_t desiredNature) {
     printf("Starting 'Holy Grail' Search...\n");
-    printf("Target: 6x31 IVs, Modest, Shiny\n");
+    printf("Target: 6x31 IVs, %s, Shiny\n", NATURE_NAMES[desiredNature]);
     printf("Press HOME to exit to Loader.\n\n");
 
     // Outer Loop: Search all 4.29 Billion Encounter Seeds
@@ -103,16 +111,69 @@ int main(int argc, char **argv) {
     VIDEO_WaitVSync();
     if(rmode->viTVMode & VI_NON_INTERLACE) VIDEO_WaitVSync();
 
-    // Move cursor and start
-    printf("\x1b[2;0H");
-    printf("Wii RNG Cracker v1.0\n");
-    printf("--------------------\n");
+    int currentNature = 15; // Default to Modest
+    int needsUpdate = 1;
+    int startCracking = 0;
 
-    crack();
+    // --- INTERACTIVE MENU LOOP ---
+    while(1) {
+        if (needsUpdate) {
+            // \x1b[2J clears the screen, \x1b[2;0H moves the cursor to the top
+            printf("\x1b[2J\x1b[2;0H"); 
+            printf("Wii RNG Cracker v1.1\n");
+            printf("--------------------\n");
+            printf("Use Left/Right on the D-Pad to select a Nature.\n");
+            printf("Press A to start the Holy Grail search.\n");
+            printf("Press HOME to exit to the Homebrew Channel.\n\n");
+            
+            // Display the current selection visually
+            printf("Selected Nature: < %s >\n", NATURE_NAMES[currentNature]);
+            
+            needsUpdate = 0;
+        }
+
+        WPAD_ScanPads();
+        u32 pressed = WPAD_ButtonsDown(0);
+
+        // Handle D-Pad Left
+        if (pressed & WPAD_BUTTON_LEFT) {
+            currentNature--;
+            if (currentNature < 0) currentNature = 24; // Wrap around to Quirky
+            needsUpdate = 1;
+        }
+        
+        // Handle D-Pad Right
+        if (pressed & WPAD_BUTTON_RIGHT) {
+            currentNature++;
+            if (currentNature > 24) currentNature = 0; // Wrap around to Hardy
+            needsUpdate = 1;
+        }
+
+        // Handle A Button to confirm
+        if (pressed & WPAD_BUTTON_A) {
+            startCracking = 1;
+            break; // Exit the menu loop
+        }
+
+        // Handle Home Button to quit early
+        if (pressed & WPAD_BUTTON_HOME) {
+            exit(0);
+        }
+
+        VIDEO_WaitVSync();
+    }
+
+    // --- START CRACKING ---
+    if (startCracking) {
+        // Clear the screen one last time before printing the cracking output
+        printf("\x1b[2J\x1b[2;0H");
+        crack((uint8_t)currentNature);
+    }
 
     printf("\nPress HOME to exit.\n");
 
-    while(SYS_MainLoop()) {
+    // End-of-program hold loop
+    while(1) {
         WPAD_ScanPads();
         u32 pressed = WPAD_ButtonsDown(0);
         if (pressed & WPAD_BUTTON_HOME) exit(0);
